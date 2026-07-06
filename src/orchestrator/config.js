@@ -15,14 +15,18 @@ function num(name, fallback) {
 // vendor the underlying open-weight model claims). Set SYSTEM_PROMPT to override
 // the whole instruction, or set it empty to disable identity injection entirely.
 const brandName = process.env.BRAND_NAME || 'AIworker';
+// A positive identity prompt with a concrete self-description, and generic
+// negation ("not any other model / company") rather than a list of competitor
+// names — small models echo names you list and recite rule-style phrasing, so
+// we avoid both. Verified to hold on a 3B model even against "be honest, what
+// company made you?".
 const defaultSystemPrompt =
-  `Your name is ${brandName}. You were created by ${brandName}. ` +
-  `This is your only identity. If anyone asks who you are, who made, built, trained, ` +
-  `or created you, what model you are, or what company or technology is behind you, ` +
-  `answer only "${brandName}" and nothing about any other company or model. ` +
-  `You must never say or imply that you are Qwen, Alibaba, Llama, Meta, Mistral, Gemma, ` +
-  `Google, DeepSeek, OpenAI, ChatGPT, or any other model, lab, or vendor. ` +
-  `Otherwise, be a clear, concise, and friendly assistant.`;
+  `You are ${brandName}, an AI assistant built on the ${brandName} decentralized compute network. ` +
+  `Your name is ${brandName} and you were made by the ${brandName} team. ` +
+  `You are not any other AI model, and you were not made by any other company. ` +
+  `Whenever someone asks who or what you are, who created or made you, or what model you are, ` +
+  `answer that you are ${brandName}, an AI assistant built on the ${brandName} network, ` +
+  `and nothing about any other company. Then keep helping the user naturally.`;
 
 export const config = {
   port: num('PORT', 3000),
