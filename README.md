@@ -124,7 +124,7 @@ serves a real chat answer over the OpenAI API.
 node src/workers/native-worker.js --url https://your-server.com
 
 # or, once you publish this package to npm, no clone needed:
-npx aiworker-worker --url https://your-server.com
+npx core-ai-worker --url https://your-server.com
 ```
 On first run it **auto-installs Ollama** (winget on Windows, Homebrew on macOS,
 the install script on Linux), **starts it**, and **downloads the model** — the
@@ -134,7 +134,7 @@ person just runs the one command and waits. `--help` lists all flags:
 - `--name MyRig`, `--key <key>` — identity / future-payout attribution
 - `--no-setup` — skip the auto-install if they've set Ollama up themselves
 
-To publish it as an installable `npx aiworker-worker` command, set a unique
+To publish it as an installable `npx core-ai-worker` command, set a unique
 `name` in `package.json` and `npm publish` (the `bin` entry is already wired).
 Requires Node installed (that's what `npx` needs); for a truly zero-install CPU
 worker you'd ship a packaged `.exe`.

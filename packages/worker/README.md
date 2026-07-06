@@ -1,17 +1,17 @@
-# blacktroll-worker
+# core-ai-worker
 
-Lend your CPU to the **BlackTroll** network and help run AI for everyone — no
-clone, no config, no GPU required.
+Lend your CPU to the **Core AI** network and help run AI for everyone — no clone,
+no config, no GPU required.
 
 ## Run it
 
 ```bash
-npx blacktroll-worker
+npx core-ai-worker --key <your-solana-wallet-address>
 ```
 
 That's it. On first run it automatically installs [Ollama](https://ollama.com),
 downloads a small model, and connects to the network. Leave the terminal open —
-your CPU is now a worker.
+your CPU is now a worker, and earnings go to the wallet you passed.
 
 **Requires:** [Node.js](https://nodejs.org) 20+ (a normal, signed installer).
 
@@ -19,16 +19,14 @@ your CPU is now a worker.
 
 ```bash
 # weak/old PC — smaller model, cap CPU cores so your machine stays responsive
-npx blacktroll-worker --model qwen2.5:0.5b --threads 2
+npx core-ai-worker --key <wallet> --model qwen2.5:0.5b --threads 2
 
 # stronger PC — bigger, smarter model
-npx blacktroll-worker --model qwen2.5:7b
-
-# point at a different network
-npx blacktroll-worker --url https://api.blacktroll.meme
+npx core-ai-worker --key <wallet> --model qwen2.5:7b
 ```
 
-Run `npx blacktroll-worker --help` for all flags.
+Run `npx core-ai-worker --help` for all flags. The `--key` is your Solana wallet
+address — that's where your earnings go, so it's checked for validity.
 
 ## How it works
 

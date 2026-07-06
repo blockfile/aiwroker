@@ -8,7 +8,7 @@
     "node": ">=20"
   },
   "bin": {
-    "aiworker-worker": "src/workers/native-worker.js"
+    "core-ai-worker": "src/workers/native-worker.js"
   },
   "scripts": {
     "start": "node src/orchestrator/server.js",

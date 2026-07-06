@@ -1,10 +1,10 @@
 {
-  "name": "blacktroll-worker",
-  "version": "1.0.3",
-  "description": "Lend your CPU to the BlackTroll network — one command with your Solana wallet, no clone.",
+  "name": "core-ai-worker",
+  "version": "1.0.0",
+  "description": "Lend your CPU to the Core AI network — one command with your Solana wallet, no clone.",
   "type": "module",
   "bin": {
-    "blacktroll-worker": "native-worker.js"
+    "core-ai-worker": "native-worker.js"
   },
   "files": [
     "native-worker.js",
@@ -21,7 +21,7 @@
     "decentralized",
     "worker",
     "ollama",
-    "blacktroll"
+    "core"
   ],
   "license": "MIT",
   "dependencies": {

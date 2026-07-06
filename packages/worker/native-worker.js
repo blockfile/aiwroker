@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Lend your CPU to the BlackTroll network — one command, no clone, no config:
+// Lend your CPU to the Core AI network — one command, no clone, no config:
 //
-//   npx blacktroll-worker --key <your-solana-wallet-address>
+//   npx core-ai-worker --key <your-solana-wallet-address>
 //
 // It auto-installs Ollama, downloads a small model, and connects to the network.
 // The worker reaches OUTWARD over a websocket, so there's no firewall/port setup.
@@ -55,10 +55,10 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-blacktroll-worker — lend your CPU to the BlackTroll network.
+core-ai-worker — lend your CPU to the Core AI network.
 
 Usage:
-  npx blacktroll-worker --key <your-solana-wallet-address> [options]
+  npx core-ai-worker --key <your-solana-wallet-address> [options]
 
 Options:
   -k, --key <address>   Your Solana wallet address — earnings go here
@@ -70,7 +70,7 @@ Options:
       --no-setup        Skip auto-installing Ollama / downloading the model
   -h, --help            Show this help
 
-Weak PC? Try:  npx blacktroll-worker --key <addr> --model qwen2.5:0.5b --threads 2
+Weak PC? Try:  npx core-ai-worker --key <addr> --model qwen2.5:0.5b --threads 2
 Ollama and the model are installed automatically on first run.
 `);
 }
@@ -93,7 +93,7 @@ const THREADS = args.threads || Number(process.env.THREADS) || 0; // 0 = let Oll
 if (KEY && !isValidSolanaAddress(KEY)) {
   console.error(`\n"${KEY}" is not a valid Solana wallet address.`);
   console.error('Use your Solana wallet address as the key, e.g.:');
-  console.error('  npx blacktroll-worker --key <your-solana-address>');
+  console.error('  npx core-ai-worker --key <your-solana-address>');
   process.exit(1);
 }
 

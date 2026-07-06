@@ -144,7 +144,7 @@ Then connect a worker **from your PC** (not the droplet):
 # from a clone of the repo:
 node src/workers/native-worker.js --url https://api.blacktroll.meme --model qwen2.5:1.5b
 # or, once published to npm:
-npx aiworker-worker --url https://api.blacktroll.meme --model qwen2.5:1.5b
+npx core-ai-worker --url https://api.blacktroll.meme --model qwen2.5:1.5b
 ```
 
 `curl https://api.blacktroll.meme/stats` should now list your worker + model.
