@@ -48,6 +48,7 @@ function parseArgs(argv) {
     else if (a === '--name' || a === '-n') out.name = val();
     else if (a === '--key' || a === '-k') out.key = val();
     else if (a === '--threads' || a === '-t') out.threads = Number(val());
+    else if (a === '--cpu') out.cpu = true; // force CPU (skip a too-small GPU)
     else if (a === '--ollama') out.ollama = val();
     else if (a === '--no-setup') out.noSetup = true; // skip auto-install/pull
     else if (a === '--help' || a === '-h') out.help = true;
@@ -68,6 +69,7 @@ Options:
   -n, --name <name>     Friendly worker name             (default: native-<hostname>)
   -k, --key <key>       Worker key (ties earnings to your account; optional for now)
   -t, --threads <n>     Limit CPU cores used (low-CPU mode; leaves your PC responsive)
+      --cpu             Force CPU (use if a bigger model won't fit your GPU)
       --ollama <url>    Local Ollama endpoint            (default: http://localhost:11434)
       --no-setup        Skip auto-installing Ollama / downloading the model
   -h, --help            Show this help
@@ -88,6 +90,7 @@ const OLLAMA_URL = args.ollama || process.env.OLLAMA_URL || 'http://localhost:11
 const NAME = args.name || process.env.WORKER_NAME || `native-${os.hostname()}`;
 const KEY = args.key || process.env.WORKER_KEY || undefined;
 const THREADS = args.threads || Number(process.env.THREADS) || 0; // 0 = let Ollama decide
+const FORCE_CPU = args.cpu || process.env.FORCE_CPU === '1'; // skip the GPU entirely
 
 // A key is optional, but if given it must be your Solana wallet address (that's
 // where earnings go) — reject typos before wasting a download/connection.
@@ -99,8 +102,13 @@ if (KEY && !isValidSolanaAddress(KEY)) {
 }
 
 async function runOllamaJob({ messages }, emit) {
+  // Let Ollama use whatever hardware fits best (GPU if the model fits its VRAM,
+  // else CPU). Add --cpu to force CPU on machines whose GPU is too small.
   const body = { model: MODEL, messages, stream: true };
-  if (THREADS > 0) body.options = { num_thread: THREADS }; // low-CPU mode
+  const options = {};
+  if (FORCE_CPU) options.num_gpu = 0;
+  if (THREADS > 0) options.num_thread = THREADS; // low-CPU mode
+  if (Object.keys(options).length) body.options = options;
 
   const res = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: 'POST',
