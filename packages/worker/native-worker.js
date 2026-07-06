@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Lend your CPU to the BlackTroll network — one command, no clone, no config:
 //
-//   npx blacktroll-worker
+//   npx blacktroll-worker --key <your-solana-wallet-address>
 //
 // It auto-installs Ollama, downloads a small model, and connects to the network.
 // The worker reaches OUTWARD over a websocket, so there's no firewall/port setup.
@@ -10,6 +10,31 @@
 import os from 'node:os';
 import { connectWorker } from './lib.js';
 import { ensureReady } from './setup.js';
+
+// Dependency-free Solana address check (mirrors the orchestrator's). A valid
+// address is a base58-encoded 32-byte key — reject typos so earnings aren't lost.
+function isValidSolanaAddress(addr) {
+  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  if (typeof addr !== 'string' || addr.length < 32 || addr.length > 44) return false;
+  const bytes = [];
+  for (const ch of addr) {
+    const val = ALPHABET.indexOf(ch);
+    if (val === -1) return false;
+    let carry = val;
+    for (let j = 0; j < bytes.length; j++) {
+      carry += bytes[j] * 58;
+      bytes[j] = carry & 0xff;
+      carry = Math.floor(carry / 256);
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry = Math.floor(carry / 256);
+    }
+  }
+  let zeros = 0;
+  for (let k = 0; k < addr.length && addr[k] === '1'; k++) zeros++;
+  return bytes.length + zeros === 32;
+}
 
 function parseArgs(argv) {
   const out = {};
@@ -33,19 +58,19 @@ function printHelp() {
 blacktroll-worker — lend your CPU to the BlackTroll network.
 
 Usage:
-  npx blacktroll-worker [options]
+  npx blacktroll-worker --key <your-solana-wallet-address> [options]
 
 Options:
+  -k, --key <address>   Your Solana wallet address — earnings go here
   -u, --url <url>       Network URL to connect to        (default: https://api.blacktroll.meme)
   -m, --model <name>    Ollama model to serve            (default: qwen2.5:1.5b)
   -n, --name <name>     Friendly worker name             (default: native-<hostname>)
-  -k, --key <key>       Worker key (ties earnings to your account; optional for now)
   -t, --threads <n>     Limit CPU cores used (low-CPU mode; leaves your PC responsive)
       --ollama <url>    Local Ollama endpoint            (default: http://localhost:11434)
       --no-setup        Skip auto-installing Ollama / downloading the model
   -h, --help            Show this help
 
-Weak PC? Try:  npx blacktroll-worker --model qwen2.5:0.5b --threads 2
+Weak PC? Try:  npx blacktroll-worker --key <addr> --model qwen2.5:0.5b --threads 2
 Ollama and the model are installed automatically on first run.
 `);
 }
@@ -62,6 +87,15 @@ const OLLAMA_URL = args.ollama || process.env.OLLAMA_URL || 'http://localhost:11
 const NAME = args.name || process.env.WORKER_NAME || `native-${os.hostname()}`;
 const KEY = args.key || process.env.WORKER_KEY || undefined;
 const THREADS = args.threads || Number(process.env.THREADS) || 0; // 0 = let Ollama decide
+
+// A key is optional, but if given it must be your Solana wallet address (that's
+// where earnings go) — reject typos before wasting a download/connection.
+if (KEY && !isValidSolanaAddress(KEY)) {
+  console.error(`\n"${KEY}" is not a valid Solana wallet address.`);
+  console.error('Use your Solana wallet address as the key, e.g.:');
+  console.error('  npx blacktroll-worker --key <your-solana-address>');
+  process.exit(1);
+}
 
 async function runOllamaJob({ messages }, emit) {
   const body = { model: MODEL, messages, stream: true };

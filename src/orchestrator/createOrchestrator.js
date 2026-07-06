@@ -24,6 +24,7 @@ import { Registry, normalizeModel } from './registry.js';
 import { pickWeighted } from './selection.js';
 import { createStore } from './store.js';
 import { computeRewards } from './rewards.js';
+import { isValidSolanaAddress } from './wallet.js';
 
 export function createOrchestrator(overrides = {}) {
   const cfg = { ...defaultConfig, ...overrides };
@@ -307,6 +308,14 @@ export function createOrchestrator(overrides = {}) {
 
   workersNsp.on('connection', (socket) => {
     socket.on('register', (payload = {}, ack) => {
+      // A key is optional (anonymous workers can serve), but IF given it must be
+      // a valid Solana wallet address — so earnings can never be lost to a typo.
+      if (payload.key && !isValidSolanaAddress(payload.key)) {
+        if (typeof ack === 'function') {
+          ack({ ok: false, error: 'key must be a valid Solana wallet address' });
+        }
+        return;
+      }
       const worker = registry.add(socket.id, {
         name: payload.name,
         models: payload.models,
