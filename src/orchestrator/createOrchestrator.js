@@ -438,7 +438,14 @@ export function createOrchestrator(overrides = {}) {
   //   /api/*  — this network's own JSON (live worker + model counts)
   //   /v1/*   — OpenAI-compatible, so existing chat UIs and SDKs work unchanged
 
-  app.get('/health', (_req, res) => res.json({ ok: true, brand: cfg.brandName }));
+  app.get('/health', (_req, res) =>
+    res.json({
+      ok: true,
+      brand: cfg.brandName,
+      search: !!searchFn, // true once BRAVE_API_KEY is loaded
+      persistence: store.enabled, // true once MONGODB_URI is loaded
+    }),
+  );
   app.get('/stats', (_req, res) => res.json(getState()));
   app.get('/api/stats', (_req, res) => res.json(getState()));
 
