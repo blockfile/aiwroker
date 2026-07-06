@@ -22,12 +22,17 @@ import { Server } from 'socket.io';
 import { config as defaultConfig } from './config.js';
 import { Registry, normalizeModel } from './registry.js';
 import { pickWeighted } from './selection.js';
+import { createStore } from './store.js';
+import { computeRewards } from './rewards.js';
 
 export function createOrchestrator(overrides = {}) {
   const cfg = { ...defaultConfig, ...overrides };
   const log = cfg.logger ?? console;
 
   const registry = new Registry({ floor: cfg.selectionFloor, emaAlpha: cfg.emaAlpha });
+
+  // Reward-system persistence (MongoDB). No-op if no MONGODB_URI is set.
+  const store = cfg.store ?? createStore({ uri: cfg.mongoUri, dbName: cfg.mongoDb, logger: log });
 
   /** @type {Map<string, object>} jobId -> job */
   const jobs = new Map();
@@ -216,6 +221,8 @@ export function createOrchestrator(overrides = {}) {
     if (worker) {
       if (tps > 0) registry.recordThroughput(worker.id, tps);
       registry.setStatus(worker.id, 'idle');
+      // Record the contribution for the reward system (keyed by worker key).
+      store.recordJob({ key: worker.key, tokens: job.tokenCount, tokensPerSec: worker.tokensPerSec });
     }
 
     job.status = 'done';
@@ -311,6 +318,7 @@ export function createOrchestrator(overrides = {}) {
         `[worker ${worker.name}] joined, serving [${worker.models.join(', ')}]` +
           (worker.key ? ` (key ${String(worker.key).slice(0, 8)}…)` : ''),
       );
+      store.workerConnected({ key: worker.key, name: worker.name, models: worker.models });
       if (typeof ack === 'function') ack({ ok: true, id: socket.id });
       tryDrain(); // a fresh idle worker may unblock queued jobs
     });
@@ -341,7 +349,10 @@ export function createOrchestrator(overrides = {}) {
       const worker = registry.get(socket.id);
       const jobId = worker?.currentJobId;
       registry.remove(socket.id);
-      if (worker) log.info?.(`[worker ${worker.name}] left`);
+      if (worker) {
+        log.info?.(`[worker ${worker.name}] left`);
+        store.workerDisconnected({ key: worker.key });
+      }
       if (jobId) {
         const job = jobs.get(jobId);
         if (job && job.status === 'running') reassign(job, 'worker disconnected');
@@ -392,6 +403,23 @@ export function createOrchestrator(overrides = {}) {
     res.json({
       object: 'list',
       data: Object.entries(counts).map(([id, workers]) => ({ id, object: 'model', workers })),
+    });
+  });
+
+  // Reward leaderboard: each worker's contribution scores + share of the pool.
+  // Accuracy & Reputation are placeholders (1.0) until the verification layer.
+  app.get('/api/rewards', async (_req, res) => {
+    const workers = (await store.leaderboard()) || [];
+    const rewards = computeRewards(workers).map((w) => ({
+      ...w,
+      key: w.key ? `${String(w.key).slice(0, 10)}…` : null, // mask for privacy
+    }));
+    res.json({
+      persistence: store.enabled,
+      formula: 'cpu + uptime + task + accuracy + reputation = share',
+      note: 'accuracy & reputation are placeholders until the verification layer exists',
+      count: rewards.length,
+      rewards,
     });
   });
 
@@ -592,6 +620,16 @@ export function createOrchestrator(overrides = {}) {
     };
   }
 
+  // Periodically fold each connected worker's elapsed time into its uptime, so
+  // the reward system's uptime stays accurate even if the orchestrator crashes.
+  let heartbeatTimer = null;
+  if (store.enabled) {
+    heartbeatTimer = setInterval(() => {
+      for (const key of registry.keysOnline()) store.heartbeat({ key });
+    }, cfg.heartbeatMs ?? 60000);
+    if (typeof heartbeatTimer.unref === 'function') heartbeatTimer.unref();
+  }
+
   function listen(port = cfg.port) {
     return new Promise((resolve) => {
       httpServer.listen(port, () => {
@@ -605,8 +643,11 @@ export function createOrchestrator(overrides = {}) {
   function close() {
     return new Promise((resolve) => {
       for (const job of jobs.values()) clearStall(job);
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
       io.close(() => {
-        httpServer.close(() => resolve());
+        httpServer.close(() => {
+          Promise.resolve(store.close()).finally(resolve);
+        });
         // fetch()/browsers keep HTTP connections alive in a pool; without this,
         // httpServer.close() would wait on those idle sockets indefinitely.
         httpServer.closeAllConnections?.();

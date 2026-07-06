@@ -31,6 +31,12 @@ const defaultSystemPrompt =
 export const config = {
   port: num('PORT', 3000),
 
+  // MongoDB (Atlas) for the reward system. Leave MONGODB_URI empty to run
+  // without persistence — the orchestrator works the same, just doesn't record
+  // contributions/rewards.
+  mongoUri: process.env.MONGODB_URI || '',
+  mongoDb: process.env.MONGODB_DB || 'core',
+
   brandName,
   // The system message prepended to every job. `undefined` env -> branded default;
   // explicit empty string -> no injection.

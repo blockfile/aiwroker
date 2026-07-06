@@ -175,6 +175,17 @@ test('/hf proxy rejects bad paths and serves cached model files from disk', asyn
   }
 });
 
+test('GET /api/rewards works with no database (persistence disabled)', async () => {
+  await withOrchestrator(async ({ base }) => {
+    const res = await fetch(`${base}/api/rewards`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.persistence, false); // no MONGODB_URI in tests
+    assert.deepEqual(body.rewards, []);
+    assert.match(body.formula, /task/);
+  });
+});
+
 test('CORS headers are present for browser access', async () => {
   await withOrchestrator(async ({ base }) => {
     const res = await fetch(`${base}/api/stats`);

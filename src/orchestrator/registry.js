@@ -89,6 +89,13 @@ export class Registry {
     return n;
   }
 
+  /** Worker keys currently connected (for periodic uptime heartbeats). */
+  keysOnline() {
+    const keys = [];
+    for (const w of this.workers.values()) if (w.key) keys.push(w.key);
+    return keys;
+  }
+
   snapshot() {
     return [...this.workers.values()].map((w) => ({
       id: w.id,
