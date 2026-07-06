@@ -37,6 +37,10 @@ export const config = {
   mongoUri: process.env.MONGODB_URI || '',
   mongoDb: process.env.MONGODB_DB || 'core',
 
+  // Brave Search API key. When set, the model gets a web_search tool for current
+  // info. Leave empty to disable web search.
+  braveApiKey: process.env.BRAVE_API_KEY || '',
+
   brandName,
   // The system message prepended to every job. `undefined` env -> branded default;
   // explicit empty string -> no injection.

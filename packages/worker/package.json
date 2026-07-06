@@ -1,6 +1,6 @@
 {
   "name": "core-ai-worker",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Lend your CPU to the Core AI network — one command with your Solana wallet, no clone.",
   "type": "module",
   "bin": {

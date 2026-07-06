@@ -100,10 +100,13 @@ if (KEY && !isValidSolanaAddress(KEY)) {
   process.exit(1);
 }
 
-async function runOllamaJob({ messages }, emit) {
+// One streaming call to Ollama. Streams content tokens via emit, collects any
+// tool calls, and returns { content, toolCalls, tps, cancelled }.
+async function callOllama(messages, tools, emit) {
   // Let Ollama use whatever hardware fits best (GPU if the model fits its VRAM,
   // else CPU). Add --cpu to force CPU on machines whose GPU is too small.
   const body = { model: MODEL, messages, stream: true };
+  if (tools && tools.length) body.tools = tools;
   const options = {};
   if (FORCE_CPU) options.num_gpu = 0;
   if (THREADS > 0) options.num_thread = THREADS; // low-CPU mode
@@ -122,17 +125,18 @@ async function runOllamaJob({ messages }, emit) {
     } catch {
       /* ignore */
     }
-    emit.error(`Ollama ${res.status}${detail ? `: ${detail}` : ''}`);
-    return;
+    throw new Error(`Ollama ${res.status}${detail ? `: ${detail}` : ''}`);
   }
 
   const decoder = new TextDecoder();
   let buffer = '';
+  let content = '';
+  const toolCalls = [];
   let evalCount = 0;
   let evalDurationNs = 0;
 
   for await (const chunk of res.body) {
-    if (emit.isCancelled()) return;
+    if (emit.isCancelled()) return { cancelled: true };
     buffer += decoder.decode(chunk, { stream: true });
 
     let nl;
@@ -147,12 +151,13 @@ async function runOllamaJob({ messages }, emit) {
       } catch {
         continue; // partial/garbled line, skip
       }
-      if (obj.error) {
-        emit.error(obj.error);
-        return;
-      }
+      if (obj.error) throw new Error(obj.error);
       const piece = obj.message?.content;
-      if (piece) emit.token(piece);
+      if (piece) {
+        emit.token(piece);
+        content += piece;
+      }
+      if (obj.message?.tool_calls) toolCalls.push(...obj.message.tool_calls);
       if (obj.done) {
         evalCount = obj.eval_count || 0;
         evalDurationNs = obj.eval_duration || 0;
@@ -160,9 +165,47 @@ async function runOllamaJob({ messages }, emit) {
     }
   }
 
-  // Ollama reports real token counts and timing — use them for accurate speed.
   const tps = evalDurationNs > 0 ? evalCount / (evalDurationNs / 1e9) : 0;
-  emit.done(tps);
+  return { content, toolCalls, tps };
+}
+
+async function runOllamaJob({ messages, tools }, emit) {
+  let msgs = messages;
+  let tps = 0;
+  const MAX_STEPS = 3; // model may search a couple of times before answering
+
+  for (let step = 0; step < MAX_STEPS; step++) {
+    const r = await callOllama(msgs, tools, emit);
+    if (r.cancelled) return;
+    if (r.tps) tps = r.tps;
+
+    // No tool call -> the model answered (already streamed). Done.
+    if (!r.toolCalls || r.toolCalls.length === 0) {
+      emit.done(tps);
+      return;
+    }
+
+    // The model asked for a tool. Run each call and feed the result back, then loop.
+    msgs = [...msgs, { role: 'assistant', content: r.content || '', tool_calls: r.toolCalls }];
+    for (const tc of r.toolCalls) {
+      const name = tc.function?.name;
+      let args = tc.function?.arguments;
+      if (typeof args === 'string') {
+        try {
+          args = JSON.parse(args);
+        } catch {
+          args = {};
+        }
+      }
+      let result = 'Tool not available.';
+      if (name === 'web_search' && args?.query && emit.search) {
+        result = await emit.search(args.query);
+      }
+      msgs.push({ role: 'tool', content: String(result) });
+    }
+  }
+
+  emit.done(tps); // ran out of steps — finish with whatever we have
 }
 
 // Install Ollama + download the model automatically so a non-dev can run this

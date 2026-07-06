@@ -35,7 +35,7 @@ export function connectWorker({ orch, name, models, tokensPerSec, key, handleJob
     });
   });
 
-  socket.on('job', async ({ jobId, model, messages }) => {
+  socket.on('job', async ({ jobId, model, messages, tools }) => {
     const ctl = { cancelled: false, ac: new AbortController() };
     active.set(jobId, ctl);
 
@@ -53,11 +53,28 @@ export function connectWorker({ orch, name, models, tokensPerSec, key, handleJob
       },
       isCancelled: () => ctl.cancelled,
       signal: ctl.ac.signal,
+      // Ask the orchestrator to run a web search (it holds the API key). Resolves
+      // with formatted result text; times out so a job can't hang forever.
+      search: (query) =>
+        new Promise((resolve) => {
+          let done = false;
+          const finish = (r) => {
+            if (!done) {
+              done = true;
+              resolve(r);
+            }
+          };
+          const t = setTimeout(() => finish('Web search timed out.'), 20000);
+          socket.emit('search', { jobId, query }, (res) => {
+            clearTimeout(t);
+            finish(res?.results ?? 'No results.');
+          });
+        }),
     };
 
     console.log(`[job ${jobId.slice(0, 8)}] received (${model || 'any'})`);
     try {
-      await handleJob({ jobId, model, messages }, emit);
+      await handleJob({ jobId, model, messages, tools }, emit);
     } catch (err) {
       if (err?.name === 'AbortError' || ctl.cancelled) return; // cancelled, stay quiet
       emit.error(err?.message || err);

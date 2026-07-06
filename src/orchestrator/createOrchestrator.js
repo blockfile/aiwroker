@@ -25,6 +25,7 @@ import { pickWeighted } from './selection.js';
 import { createStore } from './store.js';
 import { computeRewards } from './rewards.js';
 import { isValidSolanaAddress } from './wallet.js';
+import { WEB_SEARCH_TOOL, braveSearch, formatResults } from './search.js';
 
 export function createOrchestrator(overrides = {}) {
   const cfg = { ...defaultConfig, ...overrides };
@@ -34,6 +35,13 @@ export function createOrchestrator(overrides = {}) {
 
   // Reward-system persistence (MongoDB). No-op if no MONGODB_URI is set.
   const store = cfg.store ?? createStore({ uri: cfg.mongoUri, dbName: cfg.mongoDb, logger: log });
+
+  // Web search. `searchFn(query) -> formatted text`. Enabled when a Brave key is
+  // set (or a test injects cfg.searchFn). When enabled, jobs carry the tool def.
+  const searchFn =
+    cfg.searchFn ??
+    (cfg.braveApiKey ? async (q) => formatResults(await braveSearch(q, cfg.braveApiKey), q) : null);
+  const jobTools = searchFn ? [WEB_SEARCH_TOOL] : undefined;
 
   /** @type {Map<string, object>} jobId -> job */
   const jobs = new Map();
@@ -143,6 +151,7 @@ export function createOrchestrator(overrides = {}) {
       jobId: job.id,
       model: job.model,
       messages: job.messages,
+      tools: jobTools,
     });
 
     startStallTimer(job, 'first');
@@ -369,6 +378,19 @@ export function createOrchestrator(overrides = {}) {
       const job = jobs.get(jobId);
       if (!job || job.workerId !== socket.id) return;
       reassign(job, `worker error: ${message || 'unknown'}`);
+    });
+
+    // A worker mid-job asks us to run its web_search tool call. The Brave key
+    // lives here, never on the worker.
+    socket.on('search', async ({ query } = {}, ack) => {
+      if (typeof ack !== 'function') return;
+      if (!searchFn || !query) return ack({ results: 'Web search is not available.' });
+      try {
+        log.info?.(`[search] "${String(query).slice(0, 60)}"`);
+        ack({ results: await searchFn(query) });
+      } catch (err) {
+        ack({ results: `Web search failed: ${err.message}` });
+      }
     });
 
     socket.on('disconnect', () => {

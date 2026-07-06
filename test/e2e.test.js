@@ -168,6 +168,39 @@ test('reassigns the job when a worker dies mid-answer', async () => {
   });
 });
 
+test('web search: the tool is passed to the worker and the search round-trip works', async () => {
+  await withOrchestrator(
+    async ({ base }) => {
+      let receivedTools;
+      const worker = connectWorker(base, {
+        name: 'Searcher',
+        models: ['mock'],
+        handle: async ({ jobId, tools, socket }) => {
+          receivedTools = tools;
+          // Simulate the model calling web_search: ask the orchestrator, echo result.
+          const results = await new Promise((res) =>
+            socket.emit('search', { jobId, query: 'bitcoin price' }, (r) => res(r.results)),
+          );
+          socket.emit('token', { jobId, token: results });
+          socket.emit('done', { jobId });
+        },
+      });
+      await worker.ready;
+
+      const user = connectUser(base);
+      const result = await ask(user, { model: 'mock', messages: [{ role: 'user', content: 'hi' }] });
+
+      assert.ok(Array.isArray(receivedTools), 'worker should receive tools[]');
+      assert.equal(receivedTools[0].function.name, 'web_search');
+      assert.match(result.text, /STUB:bitcoin price/, 'search result should reach the worker');
+
+      user.close();
+      worker.socket.close();
+    },
+    { searchFn: async (q) => `STUB:${q}` },
+  );
+});
+
 test('rejects a job when no connected worker serves the requested model', async () => {
   await withOrchestrator(async ({ base }) => {
     const worker = connectWorker(base, { name: 'W', models: ['mock'], handle: () => {} });
