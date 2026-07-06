@@ -1,0 +1,24 @@
+{
+  "name": "aiworker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "CPU-first decentralized inference network: an orchestrator that routes chat jobs to volunteer worker machines and streams tokens back.",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "aiworker-worker": "src/workers/native-worker.js"
+  },
+  "scripts": {
+    "start": "node src/orchestrator/server.js",
+    "worker": "node src/workers/native-worker.js",
+    "worker:mock": "node src/workers/mock-worker.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5"
+  }
+}

@@ -1,0 +1,3 @@
+# The frontend (chat UI + worker page) will live here. The orchestrator already
+# serves this directory statically, so dropping an index.html here is all it
+# takes to add a web client later.
