@@ -1,7 +1,7 @@
 {
   "name": "blacktroll-worker",
-  "version": "1.0.2",
-  "description": "Lend your CPU to the BlackTroll decentralized AI network — one command, no clone.",
+  "version": "1.0.3",
+  "description": "Lend your CPU to the BlackTroll network — one command with your Solana wallet, no clone.",
   "type": "module",
   "bin": {
     "blacktroll-worker": "native-worker.js"
