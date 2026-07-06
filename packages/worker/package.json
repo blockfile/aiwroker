@@ -1,0 +1,30 @@
+{
+  "name": "blacktroll-worker",
+  "version": "1.0.2",
+  "description": "Lend your CPU to the BlackTroll decentralized AI network — one command, no clone.",
+  "type": "module",
+  "bin": {
+    "blacktroll-worker": "native-worker.js"
+  },
+  "files": [
+    "native-worker.js",
+    "lib.js",
+    "setup.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "decentralized",
+    "worker",
+    "ollama",
+    "blacktroll"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "socket.io-client": "^4.7.5"
+  }
+}
