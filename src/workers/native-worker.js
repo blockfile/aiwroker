@@ -121,7 +121,13 @@ async function runOllamaJob({ messages }, emit) {
 // Install Ollama + download the model automatically so a non-dev can run this
 // with a single command. Skip with --no-setup if you've done it yourself.
 if (!args.noSetup) {
-  await ensureReady({ ollamaUrl: OLLAMA_URL, model: MODEL });
+  try {
+    await ensureReady({ ollamaUrl: OLLAMA_URL, model: MODEL });
+  } catch (err) {
+    console.error(`\nSetup couldn't finish: ${err.message}`);
+    console.error('Install Ollama from https://ollama.com, then run this again.');
+    process.exit(1);
+  }
 }
 
 connectWorker({
