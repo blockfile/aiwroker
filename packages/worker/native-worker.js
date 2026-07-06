@@ -108,7 +108,13 @@ async function runOllamaJob({ messages }, emit) {
     signal: emit.signal,
   });
   if (!res.ok || !res.body) {
-    emit.error(`Ollama responded ${res.status}`);
+    let detail = '';
+    try {
+      detail = (await res.text()).slice(0, 300);
+    } catch {
+      /* ignore */
+    }
+    emit.error(`Ollama ${res.status}${detail ? `: ${detail}` : ''}`);
     return;
   }
 
