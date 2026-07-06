@@ -81,7 +81,24 @@ export function createOrchestrator(overrides = {}) {
   function composeMessages(clientMessages) {
     const withoutSystem = clientMessages.filter((m) => m && m.role !== 'system');
     if (!cfg.systemPrompt) return withoutSystem;
-    return [{ role: 'system', content: cfg.systemPrompt }, ...withoutSystem];
+    // Give the model today's date (it has no clock, so it otherwise guesses a
+    // date from its training era). This does NOT give it recent knowledge — that
+    // needs the web-search tool — but it fixes "what's the date?" and grounds it.
+    const now = new Date();
+    const today = now.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    const year = now.getFullYear();
+    // Date first (models weight the start most) and emphatic about the year —
+    // small models otherwise fall back to their training-era year.
+    const system =
+      `The current date is ${today}. The current year is ${year}. ` +
+      `When asked the date or year, always give exactly this, never a date from your training data. ` +
+      `${cfg.systemPrompt} Your knowledge has a training cutoff, so you may not know very recent events.`;
+    return [{ role: 'system', content: system }, ...withoutSystem];
   }
 
   function anyWorkerServes(model) {
